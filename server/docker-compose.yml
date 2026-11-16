@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: mywordstory
+      POSTGRES_USER: mywordstory
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mywordstory -d mywordstory"]
+      interval: 5s
+      retries: 10
+
+  server:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/mywordstory
+      DATABASE_USER: mywordstory
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      API_TOKEN: ${API_TOKEN:?set API_TOKEN in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env}
+    ports:
+      - "8080:8080"
+
+volumes:
+  db-data:
