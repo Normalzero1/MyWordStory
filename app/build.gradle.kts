@@ -31,6 +31,7 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+    implementation("io.github.open-spaced-repetition:fsrs:1.0.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
