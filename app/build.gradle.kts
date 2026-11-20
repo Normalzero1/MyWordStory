@@ -2,6 +2,7 @@ plugins {
     id("com.android.application") version "9.5.0"
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
+    id("com.google.devtools.ksp") version "2.3.13"
 }
 
 android {
@@ -32,6 +33,9 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.github.open-spaced-repetition:fsrs:1.0.0")
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.ktor:ktor-client-mock:$ktorVersion")

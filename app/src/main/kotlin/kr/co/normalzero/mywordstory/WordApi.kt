@@ -6,6 +6,7 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -29,6 +30,9 @@ data class Synonym(val word: String, val nuance: String)
 data class Example(val en: String, val ko: String, val context: String)
 
 @Serializable
+data class Cloze(val sentence: String, val answer: String)
+
+@Serializable
 data class WordContent(
     val headword: String,
     val ipa: String,
@@ -40,6 +44,8 @@ data class WordContent(
     val collocations: List<String>,
     val examples: List<Example>,
     val tag: String,
+    val cefr: String? = null,
+    val cloze: Cloze? = null,
 )
 
 @Serializable
@@ -49,10 +55,27 @@ data class Word(
     val source: String,
     val content: WordContent,
     val createdAt: String,
+    val status: String = "new",
+)
+
+@Serializable
+data class LevelTest(val startLevel: String? = null, val levels: Map<String, List<String>> = emptyMap())
+
+@Serializable
+data class StudyStatus(
+    val startLevel: String? = null,
+    val candidateLevels: Map<String, Int> = emptyMap(),
+    val readyNewWords: Int = 0,
 )
 
 @Serializable
 private data class AddWordRequest(val headword: String)
+
+@Serializable
+private data class StatusRequest(val status: String)
+
+@Serializable
+private data class LevelTestResult(val startLevel: String, val known: List<String>, val unknown: List<String>)
 
 @Serializable
 private data class ErrorBody(val error: String? = null)
@@ -68,15 +91,32 @@ class WordApi(baseUrl: String, private val token: String, engine: HttpClientEngi
         install(HttpTimeout) { requestTimeoutMillis = 90_000 }
     }
 
-    suspend fun listWords(): List<Word> = send { client.get("$base/words") { bearerAuth(token) } }.body()
+    suspend fun listWords(): List<Word> = get("words").body()
 
-    suspend fun addWord(headword: String): Word = send {
-        client.post("$base/words") {
+    suspend fun addWord(headword: String): Word = post("words", AddWordRequest(headword)).body()
+
+    /** Ready cards not studied yet, the user's own words first. */
+    suspend fun newWords(count: Int): List<Word> = get("study/new?count=$count").body()
+
+    suspend fun setStatus(wordId: Long, status: String): Word = post("words/$wordId/status", StatusRequest(status)).body()
+
+    suspend fun status(): StudyStatus = get("study/status").body()
+
+    suspend fun levelTest(): LevelTest = get("level-test").body()
+
+    suspend fun saveLevelTest(startLevel: String, known: List<String>, unknown: List<String>) {
+        post("level-test", LevelTestResult(startLevel, known, unknown))
+    }
+
+    private suspend fun get(path: String) = send { client.get("$base/$path") { bearerAuth(token) } }
+
+    private suspend inline fun <reified T> post(path: String, body: T) = send {
+        client.post("$base/$path") {
             bearerAuth(token)
             contentType(ContentType.Application.Json)
-            setBody(AddWordRequest(headword))
+            setBody(body)
         }
-    }.body()
+    }
 
     private suspend fun send(request: suspend () -> HttpResponse): HttpResponse {
         val response = try {
