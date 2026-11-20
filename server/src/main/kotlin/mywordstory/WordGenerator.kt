@@ -59,6 +59,8 @@ class ClaudeWordGenerator(
             - collocations: 3 to 5 common collocations.
             - examples: exactly 2. One with context "daily" (everyday conversation) and one with context "business" (IT/business workplace). Each with a natural Korean translation in "ko".
             - tag: "business" if the word is mainly used in IT/business settings, otherwise "daily".
+            - cefr: the CEFR level a learner usually meets this word at: one of A1, A2, B1, B2, C1, C2.
+            - cloze: a natural English sentence using the word, different from the examples. In "sentence", replace the word (in the exact form used) with "___"; put the removed text in "answer".
         """.trimIndent()
     }
 }

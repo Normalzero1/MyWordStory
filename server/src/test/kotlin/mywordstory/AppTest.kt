@@ -38,17 +38,19 @@ class AppTest {
             collocations = listOf("circle back on"),
             examples = listOf(Example("Let's circle back.", "나중에 다시 얘기해요.", "business")),
             tag = "business",
+            cefr = "B2",
+            cloze = Cloze("Let's ___ on this tomorrow.", "circle back"),
         )
     }
 
     @BeforeTest
     fun resetDatabase() {
         repo.migrate()
-        DriverManager.getConnection(url, user, password).use { it.createStatement().execute("TRUNCATE words") }
+        DriverManager.getConnection(url, user, password).use { it.createStatement().execute("TRUNCATE words, candidates, settings") }
     }
 
     private fun withApp(block: suspend ApplicationTestBuilder.() -> Unit) = testApplication {
-        application { module(repo, fakeGenerator, token) }
+        application { module(repo, fakeGenerator, token, StudyService(repo, fakeGenerator, { emptyMap() })) }
         block()
     }
 
@@ -83,6 +85,29 @@ class AppTest {
         assertEquals(1, mapper.readTree(list.bodyAsText()).size())
         val one = client.get("/words/${body["id"].asLong()}") { header(HttpHeaders.Authorization, "Bearer $token") }
         assertEquals(HttpStatusCode.OK, one.status)
+    }
+
+    @Test
+    fun `study endpoints for new words, status and level test`() = withApp {
+        val auth: io.ktor.client.request.HttpRequestBuilder.() -> Unit = { header(HttpHeaders.Authorization, "Bearer $token") }
+        val id = mapper.readTree(addWord("circle back").bodyAsText())["id"].asLong()
+
+        val next = mapper.readTree(client.get("/study/new?count=5", auth).bodyAsText())
+        assertEquals(listOf("circle back"), next.map { it["headword"].asText() })
+        assertEquals("B2", next[0]["content"]["cefr"].asText())
+
+        val studied = client.post("/words/$id/status") { auth(); contentType(ContentType.Application.Json); setBody("""{"status":"studied"}""") }
+        assertEquals("studied", mapper.readTree(studied.bodyAsText())["status"].asText())
+        assertEquals(0, mapper.readTree(client.get("/study/new", auth).bodyAsText()).size())
+
+        val badStatus = client.post("/words/$id/status") { auth(); contentType(ContentType.Application.Json); setBody("""{"status":"done"}""") }
+        assertEquals(HttpStatusCode.BadRequest, badStatus.status)
+
+        val badLevel = client.post("/level-test") { auth(); contentType(ContentType.Application.Json); setBody("""{"startLevel":"Z1"}""") }
+        assertEquals(HttpStatusCode.BadRequest, badLevel.status)
+        val ok = client.post("/level-test") { auth(); contentType(ContentType.Application.Json); setBody("""{"startLevel":"b1","known":[],"unknown":[]}""") }
+        assertEquals(HttpStatusCode.NoContent, ok.status)
+        assertEquals("B1", mapper.readTree(client.get("/level-test", auth).bodyAsText())["startLevel"].asText())
     }
 
     @Test
